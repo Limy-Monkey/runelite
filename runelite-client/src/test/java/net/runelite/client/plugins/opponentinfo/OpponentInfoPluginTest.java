@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021, Jordan Atwood <jordan.atwood423@gmail.com>
+ * Copyright (c) 2026, Scott Enand <scott.enand@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,13 +31,18 @@ import com.google.inject.testing.fieldbinder.Bind;
 import com.google.inject.testing.fieldbinder.BoundFieldModule;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
+import net.runelite.api.NPCComposition;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.ui.overlay.OverlayManager;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.Test;
@@ -111,6 +117,37 @@ public class OpponentInfoPluginTest
 		// last opponent is remembered for 5 seconds
 		assertSame(npc, plugin.getLastOpponent());
 		assertNotNull(plugin.getLastTime());
+	}
+
+	@Test
+	public void testServerTracking()
+	{
+		final NPC npc = mock(NPC.class);
+		final int VARDORVIS = 12223;
+		NPCComposition composition = mock(NPCComposition.class);
+
+		when(composition.getId()).thenReturn(VARDORVIS);
+		when(npc.getComposition()).thenReturn(composition);
+
+		assertFalse(plugin.isServerTracking());
+
+		interactingChanged(localPlayer, npc);
+
+		when(client.getVarpValue(VarPlayerID.HPBAR_HUD_NPC)).thenReturn(VARDORVIS);
+		when(client.getVarbitValue(VarbitID.HPBAR_HUD_BASEHP)).thenReturn(700);
+		assertTrue(plugin.isServerTracking());
+
+		when(client.getVarpValue(VarPlayerID.HPBAR_HUD_NPC)).thenReturn(VARDORVIS);
+		when(client.getVarbitValue(VarbitID.HPBAR_HUD_BASEHP)).thenReturn(0);
+		assertFalse(plugin.isServerTracking());
+
+		when(client.getVarpValue(VarPlayerID.HPBAR_HUD_NPC)).thenReturn(VARDORVIS + 1);
+		when(client.getVarbitValue(VarbitID.HPBAR_HUD_BASEHP)).thenReturn(700);
+		assertFalse(plugin.isServerTracking());
+
+		when(npc.getComposition()).thenReturn(null);
+		when(client.getVarpValue(VarPlayerID.HPBAR_HUD_NPC)).thenReturn(VARDORVIS);
+		assertFalse(plugin.isServerTracking());
 	}
 
 	@Test

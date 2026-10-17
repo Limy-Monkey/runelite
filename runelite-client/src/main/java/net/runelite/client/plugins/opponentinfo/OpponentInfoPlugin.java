@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2016-2018, Adam <Adam@sigterm.info>
  * Copyright (c) 2018, Jordan Atwood <jordan.atwood423@gmail.com>
+ * Copyright (c) 2018, Scott Enand <jordan.atwood423@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,19 +34,14 @@ import java.time.Instant;
 import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
-import net.runelite.api.Actor;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.MenuAction;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.NPC;
-import net.runelite.api.ScriptID;
+import net.runelite.api.*;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
@@ -222,5 +218,18 @@ public class OpponentInfoPlugin extends Plugin
 	{
 		double percent = 100.0 * current / maximum;
 		return PERCENT_FORMAT.format(percent) + "%";
+	}
+
+	protected boolean isServerTracking()
+	{
+		if (lastOpponent instanceof NPC)
+		{
+			int serverNpcId = client.getVarpValue(VarPlayerID.HPBAR_HUD_NPC);
+			NPCComposition composition = ((NPC) lastOpponent).getComposition();
+			boolean matchingNpcId = serverNpcId != -1 && composition != null && composition.getId() == serverNpcId;
+			boolean validMaxHP = client.getVarbitValue(VarbitID.HPBAR_HUD_BASEHP) > 0;
+			return matchingNpcId && validMaxHP;
+		}
+		return false;
 	}
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2016-2018, Adam <Adam@sigterm.info>
  * Copyright (c) 2018, Jordan Atwood <jordan.atwood423@gmail.com>
+ * Copyright (c) 2026, Scott Enand <scott.enand@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -122,7 +123,14 @@ class OpponentInfoOverlay extends OverlayPanel
 						opponentName = longName;
 					}
 				}
-				lastMaxHealth = npcManager.getHealth(((NPC) opponent).getId());
+				if (opponentInfoPlugin.isServerTracking())
+				{
+					lastMaxHealth = client.getVarbitValue(VarbitID.HPBAR_HUD_BASEHP);
+				}
+				else
+				{
+					lastMaxHealth = npcManager.getHealth(((NPC) opponent).getId());
+				}
 			}
 			else if (opponent instanceof Player)
 			{
@@ -166,36 +174,44 @@ class OpponentInfoOverlay extends OverlayPanel
 			if ((displayStyle == HitpointsDisplayStyle.HITPOINTS || displayStyle == HitpointsDisplayStyle.BOTH)
 				&& lastMaxHealth != null)
 			{
-				// This is the reverse of the calculation of healthRatio done by the server
-				// which is: healthRatio = 1 + (healthScale - 1) * health / maxHealth (if health > 0, 0 otherwise)
-				// It's able to recover the exact health if maxHealth <= healthScale.
+				// Get health directly from varbit when available, otherwise estimate health
 				int health = 0;
-				if (lastRatio > 0)
+				if (opponent instanceof NPC && opponentInfoPlugin.isServerTracking())
 				{
-					int minHealth = 1;
-					int maxHealth;
-					if (lastHealthScale > 1)
+					health = client.getVarbitValue(VarbitID.HPBAR_HUD_HP);
+				}
+				else
+				{
+					// This is the reverse of the calculation of healthRatio done by the server
+					// which is: healthRatio = 1 + (healthScale - 1) * health / maxHealth (if health > 0, 0 otherwise)
+					// It's able to recover the exact health if maxHealth <= healthScale.
+					if (lastRatio > 0)
 					{
-						if (lastRatio > 1)
+						int minHealth = 1;
+						int maxHealth;
+						if (lastHealthScale > 1)
 						{
-							// This doesn't apply if healthRatio = 1, because of the special case in the server calculation that
-							// health = 0 forces healthRatio = 0 instead of the expected healthRatio = 1
-							minHealth = (lastMaxHealth * (lastRatio - 1) + lastHealthScale - 2) / (lastHealthScale - 1);
+							if (lastRatio > 1)
+							{
+								// This doesn't apply if healthRatio = 1, because of the special case in the server calculation that
+								// health = 0 forces healthRatio = 0 instead of the expected healthRatio = 1
+								minHealth = (lastMaxHealth * (lastRatio - 1) + lastHealthScale - 2) / (lastHealthScale - 1);
+							}
+							maxHealth = (lastMaxHealth * lastRatio - 1) / (lastHealthScale - 1);
+							if (maxHealth > lastMaxHealth)
+							{
+								maxHealth = lastMaxHealth;
+							}
 						}
-						maxHealth = (lastMaxHealth * lastRatio - 1) / (lastHealthScale - 1);
-						if (maxHealth > lastMaxHealth)
+						else
 						{
+							// If healthScale is 1, healthRatio will always be 1 unless health = 0
+							// so we know nothing about the upper limit except that it can't be higher than maxHealth
 							maxHealth = lastMaxHealth;
 						}
+						// Take the average of min and max possible healths
+						health = (minHealth + maxHealth + 1) / 2;
 					}
-					else
-					{
-						// If healthScale is 1, healthRatio will always be 1 unless health = 0
-						// so we know nothing about the upper limit except that it can't be higher than maxHealth
-						maxHealth = lastMaxHealth;
-					}
-					// Take the average of min and max possible healths
-					health = (minHealth + maxHealth + 1) / 2;
 				}
 
 				// Show both the hitpoint and percentage values if enabled in the config
